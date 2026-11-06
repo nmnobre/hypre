@@ -1416,6 +1416,7 @@ hypre_LOBPCGSolve( void *vdata,
 
    HYPRE_Int maxit = lobpcg_maxIterations(data->lobpcgData);
    HYPRE_Int verb  = lobpcg_verbosityLevel(data->lobpcgData);
+   HYPRE_Int err;
 
    HYPRE_Int n = mv_MultiVectorWidth( vec );
    lobpcg_BLASLAPACKFunctions blap_fn;
@@ -1455,21 +1456,34 @@ hypre_LOBPCGSolve( void *vdata,
    blap_fn.dsygv = dsygv_interface;
    blap_fn.dpotrf = dpotrf_interface;
 
-   lobpcg_solve( vec,
-                 vdata, operatorA,
-                 vdata, operatorB,
-                 vdata, prec,
-                 con,
-                 blap_fn,
-                 lobpcg_tolerance(data->lobpcgData), maxit, verb,
-                 &(lobpcg_iterationNumber(data->lobpcgData)),
-                 val,
-                 utilities_FortranMatrixValues(lambdaHistory),
-                 utilities_FortranMatrixGlobalHeight(lambdaHistory),
-                 utilities_FortranMatrixValues(residuals),
-                 utilities_FortranMatrixValues(residualsHistory),
-                 utilities_FortranMatrixGlobalHeight(residualsHistory)
-               );
+   err = lobpcg_solve( vec,
+                       vdata, operatorA,
+                       vdata, operatorB,
+                       vdata, prec,
+                       con,
+                       blap_fn,
+                       lobpcg_tolerance(data->lobpcgData), maxit, verb,
+                       &(lobpcg_iterationNumber(data->lobpcgData)),
+                       val,
+                       utilities_FortranMatrixValues(lambdaHistory),
+                       utilities_FortranMatrixGlobalHeight(lambdaHistory),
+                       utilities_FortranMatrixValues(residuals),
+                       utilities_FortranMatrixValues(residualsHistory),
+                       utilities_FortranMatrixGlobalHeight(residualsHistory)
+                     );
+
+   switch ( err )
+   {
+   case WRONG_BLOCK_SIZE:
+      hypre_error_w_msg(HYPRE_ERROR_ARG, "LOBPCG block size must be positive");
+      break;
+   case WRONG_CONSTRAINTS:
+      hypre_error_w_msg(HYPRE_ERROR_ARG, "LOBPCG constraints are linearly dependent");
+      break;
+   case REQUESTED_ACCURACY_NOT_ACHIEVED:
+      hypre_error_w_msg(HYPRE_ERROR_CONV, "LOBPCG requested accuracy not achieved");
+      break;
+   }
 
    return hypre_error_flag;
 }

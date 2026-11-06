@@ -837,6 +837,7 @@ HYPRE_Int hypre_AMESolve(void *esolver)
    hypre_AMEData *ame_data = (hypre_AMEData *) esolver;
 
    HYPRE_Int nit;
+   HYPRE_Int err;
    lobpcg_BLASLAPACKFunctions blap_fn;
    lobpcg_Tolerance lobpcg_tol;
    HYPRE_Real *residuals;
@@ -847,18 +848,28 @@ HYPRE_Int hypre_AMESolve(void *esolver)
    lobpcg_tol.absolute = ame_data -> atol;
    residuals = hypre_TAlloc(HYPRE_Real,  ame_data -> block_size, HYPRE_MEMORY_HOST);
 
-   lobpcg_solve((mv_MultiVectorPtr) ame_data -> eigenvectors,
-                esolver, hypre_AMEMultiOperatorA,
-                esolver, hypre_AMEMultiOperatorM,
-                esolver, hypre_AMEMultiOperatorB,
-                NULL, blap_fn, lobpcg_tol, ame_data -> maxit,
-                ame_data -> print_level, &nit,
-                ame_data -> eigenvalues,
-                NULL, ame_data -> block_size,
-                residuals,
-                NULL, ame_data -> block_size);
+   err = lobpcg_solve((mv_MultiVectorPtr) ame_data -> eigenvectors,
+                      esolver, hypre_AMEMultiOperatorA,
+                      esolver, hypre_AMEMultiOperatorM,
+                      esolver, hypre_AMEMultiOperatorB,
+                      NULL, blap_fn, lobpcg_tol, ame_data -> maxit,
+                      ame_data -> print_level, &nit,
+                      ame_data -> eigenvalues,
+                      NULL, ame_data -> block_size,
+                      residuals,
+                      NULL, ame_data -> block_size);
 
    hypre_TFree(residuals, HYPRE_MEMORY_HOST);
+
+   switch ( err )
+   {
+   case WRONG_BLOCK_SIZE:
+      hypre_error_w_msg(HYPRE_ERROR_ARG, "AME block size must be positive");
+      break;
+   case REQUESTED_ACCURACY_NOT_ACHIEVED:
+      hypre_error_w_msg(HYPRE_ERROR_CONV, "AME requested accuracy not achieved");
+      break;
+   }
 
    return hypre_error_flag;
 }
